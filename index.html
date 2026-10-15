@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b1016" />
+    <meta
+      name="description"
+      content="Hacker Ankit Game 3 is an endless, neon block puzzle challenge."
+    />
+    <meta name="application-name" content="Hacker Ankit Game 3" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Hacker Ankit 3" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Hacker Ankit Game 3</title>
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">A/3</div>
+          <div class="brand-copy">
+            <p class="brand-name">Hacker Ankit Game 3</p>
+            <p class="brand-sub">Block puzzle · signal active</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <div class="network" id="network" role="status">
+            <span class="net-dot" aria-hidden="true"></span
+            ><span class="network-label">ONLINE</span>
+          </div>
+          <button
+            class="icon-button"
+            id="help-button"
+            type="button"
+            aria-label="How to play"
+          >
+            Rules
+          </button>
+          <button
+            class="install-button"
+            id="install-button"
+            type="button"
+            aria-label="Install App"
+          >
+            📥 Install App / डाउनलोड करें
+          </button>
+        </div>
+      </header>
+
+      <section class="game-layout" aria-label="Block puzzle game">
+        <div class="play-panel">
+          <div class="stats">
+            <div class="stat score">
+              <div class="stat-label">Score ↗</div>
+              <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Personal best</div>
+              <div class="stat-value" id="best">0</div>
+            </div>
+            <div class="stat stat-level">
+              <div class="stat-label">Level</div>
+              <div class="stat-value" id="level">1</div>
+            </div>
+          </div>
+
+          <div class="board-wrap">
+            <div
+              class="board"
+              id="board"
+              role="grid"
+              aria-label="10 by 10 puzzle board"
+            ></div>
+          </div>
+          <div class="board-hint">
+            <span id="game-hint" role="status"
+              >Choose a shape, then place it on the grid.</span
+            >
+            <strong>10 × 10</strong>
+          </div>
+          <div class="tray-heading">
+            <h2>Next shapes</h2>
+            <span>Select · then place</span>
+          </div>
+          <div class="pieces" id="pieces" aria-label="Available shapes"></div>
+        </div>
+
+        <aside class="side-panel" aria-label="Run details">
+          <div class="side-title">
+            <h2>Run telemetry</h2>
+            <span class="level-chip" id="level-chip">LVL 1</span>
+          </div>
+          <div class="progress-track" aria-label="Progress to next level">
+            <div class="progress-fill" id="level-progress"></div>
+          </div>
+          <p class="side-copy">
+            Every 100 points or 4 cleared lines advances your level. Shapes get
+            trickier as the endless run grows.
+          </p>
+
+          <!-- Fix added here: required by script.js -->
+          <div id="lines" hidden></div>
+          <div id="combo" hidden></div>
+
+          <div class="action-row">
+            <button class="restart-button" id="restart-button" type="button">
+              Restart run
+            </button>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <div class="overlay" id="overlay" hidden role="dialog" aria-modal="true">
+      <section class="dialog">
+        <h2 id="dialog-title">How to play</h2>
+        <div id="rules-content">
+          <p>
+            Fit all three shapes onto the grid. Fill complete rows or columns to
+            clear them and score points.
+          </p>
+        </div>
+        <div id="over-content" hidden>
+          <p>Game Over! No space left for remaining shapes.</p>
+          <p>
+            Run score: <strong id="end-score">0</strong> · Best:
+            <strong id="end-best">0</strong>
+          </p>
+        </div>
+        <div class="dialog-actions">
+          <button id="close-dialog" type="button">Got it</button>
+          <button class="primary-action" id="restart-in-dialog" type="button">
+            Start fresh
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
