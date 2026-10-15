@@ -25,7 +25,6 @@
     [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]]
   ];
 
-  // ---- Safe DOM helper ----
   const $ = (sel) => document.querySelector(sel);
 
   const boardEl = $("#board");
@@ -42,8 +41,6 @@
   const networkEl = $("#network");
   const installButton = $("#install-button");
   const installGuide = $("#install-guide");
-  const installGuideTitle = $("#install-guide-title");
-  const installGuideSteps = $("#install-guide-steps");
   const toast = $("#toast");
 
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
@@ -58,8 +55,7 @@
   let dragSlot = -1;
   let dragging = false;
   let skipClick = false;
-  let installPrompt = null;
-  let installFallbackTimer = 0;
+  let deferredPrompt = null;
   let toastTimer;
 
   const cloneShape = shape => shape.map(([x, y]) => [x, y]);
@@ -84,7 +80,7 @@
         }
       }
       const options = Array.from(frontier.values());
-      if (!options.length) break; // safety guard
+      if (!options.length) break;
       const next = options[Math.floor(Math.random() * options.length)];
       shape.push(next);
       occupied.add(`${next[0]},${next[1]}`);
@@ -171,7 +167,6 @@
         cell.dataset.row = String(r);
         cell.dataset.col = String(c);
         cell.setAttribute("aria-label", `Row ${r + 1}, column ${c + 1}${board[r][c] ? ", filled" : ""}`);
-        cell.dataset.testid = `board-cell-${r}-${c}`;
         if (board[r][c]) {
           cell.classList.add("filled");
           cell.style.setProperty("--block-color", board[r][c]);
@@ -196,7 +191,6 @@
       slot.type = "button";
       slot.className = "piece-slot";
       slot.dataset.slot = String(index);
-      slot.dataset.testid = `piece-slot-${index}`;
       slot.setAttribute("aria-label", `Select piece ${index + 1}, ${piece.shape.length} blocks`);
       if (index === selected) slot.classList.add("selected");
       if (!piece.available) slot.classList.add("used");
@@ -414,7 +408,6 @@
     dragging = false;
   });
 
-  // ---- Safe button wiring ----
   const bind = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("click", fn); };
   bind("#restart-button", newGame);
   bind("#restart-in-dialog", newGame);
@@ -443,61 +436,160 @@
   window.addEventListener("offline", updateNetwork);
   updateNetwork();
 
-  // ---- Install / PWA ----
-  function isAppInstalled() {
-    return Boolean(window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true);
+  // =========================================================
+  // ---- PWA Install Button Handler (Robust, Null-Safe) ----
+  // =========================================================
+
+  function isStandaloneMode() {
+    try {
+      return Boolean(
+        window.matchMedia?.("(display-mode: standalone)")?.matches ||
+        navigator.standalone === true
+      );
+    } catch {
+      return false;
+    }
   }
 
   function isIOSDevice() {
-    const userAgent = navigator.userAgent || "";
+    const ua = navigator.userAgent || "";
     const platform = navigator.platform || "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return /iPad|iPhone|iPod/i.test(ua) ||
+           (platform === "MacIntel" && navigator.maxTouchPoints > 1);
   }
 
-  function getInstallInstructions() {
-    const userAgent = navigator.userAgent || "";
+  function isMacSafari() {
+    const ua = navigator.userAgent || "";
+    const isSafari = /Safari/i.test(ua) &&
+                     !/(Chrome|Chromium|CriOS|Edg|FxiOS|OPR|Android)/i.test(ua);
+    const isMac = /Macintosh|Mac OS X/i.test(ua) && !isIOSDevice();
+    return isSafari && isMac;
+  }
+
+  function isDesktopSafari() {
+    const ua = navigator.userAgent || "";
+    return /Safari/i.test(ua) &&
+           !/(Chrome|Chromium|CriOS|Edg|FxiOS|OPR|Android)/i.test(ua) &&
+           !isIOSDevice() && !isMacSafari();
+  }
+
+  function showInstallInstructions() {
     if (isIOSDevice()) {
-      return {
-        title: "Add to Home Screen on iPhone or iPad",
-        steps: [
-          "Tap the Share button in your browser toolbar.",
-          "Scroll the share sheet and tap Add to Home Screen.",
-          "Tap Add to confirm. If the option is missing, open this page in Safari."
-        ]
-      };
+      showToast(
+        "📲 iPhone/iPad: Safari में Share बटन (⬆️) → 'Add to Home Screen' → 'Add' दबाएँ।"
+      );
+      return;
     }
-    if (/Android/i.test(userAgent)) {
-      return {
-        title: "Install on Android",
-        steps: [
-          "Open your browser menu (⋮) in the top corner.",
-          "Tap Install app or Add to Home screen.",
-          "Confirm Install or Add to finish."
-        ]
-      };
+    if (isMacSafari()) {
+      showToast(
+        "💻 MacBook (Safari): Menu bar में 'File' → 'Add to Dock' चुनें, फिर 'Add' दबाएँ।"
+      );
+      return;
     }
-    if (/Edg\//i.test(userAgent)) {
-      return {
-        title: "Install in Microsoft Edge",
-        steps: [
-          "Select the Install icon at the right of the address bar, or open Settings and more (⋯) > Apps.",
-          "Choose Install this site as an app and confirm.",
-          "Launch the game from your apps list or desktop."
-        ]
-      };
+    if (isDesktopSafari()) {
+      showToast(
+        "💻 Safari: Menu bar में 'File' → 'Add to Dock' चुनें।"
+      );
+      return;
     }
-    if (/Safari/i.test(userAgent) && !/(Chrome|Chromium|CriOS|Edg|FxiOS|OPR)/i.test(userAgent)) {
-      return {
-        title: "Add this game to your Mac Dock",
-        steps: [
-          "In Safari, open the File menu.",
-          "Choose Add to Dock and confirm.",
-          "Launch the game from your Dock."
-        ]
-      };
+    if (/Android/i.test(navigator.userAgent)) {
+      showToast(
+        "🤖 Android: Browser menu (⋮) → 'Install app' / 'Add to Home screen' → Confirm करें।"
+      );
+      return;
     }
-    if (/(Chrome|Chromium)/i.test(userAgent)) {
-      return {
-        title: "Install in Chrome",
-        steps: [
-          "Select the Install icon at the right of the address
+    if (/Edg\//i.test(navigator.userAgent)) {
+      showToast(
+        "💻 Edge: Address bar में Install icon दबाएँ, या menu (⋯) → 'Apps' → 'Install this site as an app'।"
+      );
+      return;
+    }
+    if (/(Chrome|Chromium)/i.test(navigator.userAgent)) {
+      showToast(
+        "💻 Chrome: Address bar में Install icon दबाएँ, या menu (⋮) → 'Install App' चुनें।"
+      );
+      return;
+    }
+    showToast(
+      "💻 Install App: Browser menu (⋮ / ⋯) → 'Install App' / 'Add to Home Screen' चुनें।"
+    );
+  }
+
+  if (installButton && isStandaloneMode()) {
+    installButton.style.display = "none";
+  }
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    if (installButton) installButton.style.display = "inline-flex";
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    if (installButton) installButton.style.display = "none";
+    showToast("✅ Game installed! Home screen पर icon देखें।");
+  });
+
+  if (installButton) {
+    installButton.addEventListener("click", async () => {
+      if (deferredPrompt) {
+        const promptEvent = deferredPrompt;
+        deferredPrompt = null;
+        installButton.disabled = true;
+        try {
+          await promptEvent.prompt();
+          const choice = await promptEvent.userChoice;
+          if (choice && choice.outcome === "accepted") {
+            installButton.style.display = "none";
+            showToast("✅ Installation शुरू हो गई।");
+          } else {
+            showInstallInstructions();
+          }
+        } catch (err) {
+          console.warn("[PWA] Install prompt failed:", err);
+          showInstallInstructions();
+        } finally {
+          installButton.disabled = false;
+        }
+        return;
+      }
+
+      showInstallInstructions();
+    });
+  }
+
+  try {
+    const displayModeQuery = window.matchMedia?.("(display-mode: standalone)");
+    if (displayModeQuery?.addEventListener) {
+      displayModeQuery.addEventListener("change", (event) => {
+        if (event.matches && installButton) {
+          installButton.style.display = "none";
+        }
+      });
+    } else if (displayModeQuery?.addListener) {
+      displayModeQuery.addListener((event) => {
+        if (event.matches && installButton) {
+          installButton.style.display = "none";
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("[PWA] display-mode listener failed:", err);
+  }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then((registration) => {
+          console.log("[SW] Registered:", registration.scope);
+        })
+        .catch((err) => {
+          console.warn("[SW] Registration failed:", err);
+        });
+    });
+  }
+
+  newGame();
+})();
